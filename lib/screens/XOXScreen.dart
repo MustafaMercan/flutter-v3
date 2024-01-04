@@ -77,7 +77,7 @@ class _XOXScreenState extends State<XOXScreen> {
                       int col = index % 3;
                       return GestureDetector(
                         onTap: () {
-                          if (false) {
+                          if (drawingState.isDrawing) {
                             // Show dialog indicating drawing is in progress
                             showDialog(
                               context: context,
@@ -104,6 +104,7 @@ class _XOXScreenState extends State<XOXScreen> {
                               isPlayerTurn = false;
                               checkGameStatus();
                               if (!isPlayerTurn) {
+
                                 makeAIMove();
                               }
                               saveImage();
@@ -133,35 +134,102 @@ class _XOXScreenState extends State<XOXScreen> {
     );
   }
 
-  void makeAIMove() {
-    List<int> emptyCells = [];
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        if (grid[i][j] == '') {
-          emptyCells.add(i * 3 + j);
+void makeAIMove() {
+  if (!isGridFull()) {
+    int bestScore = -1000;
+    int bestMove = -1;
+
+    for (int i = 0; i < 9; i++) {
+      if (grid[i ~/ 3][i % 3] == '') {
+        grid[i ~/ 3][i % 3] = 'O';
+        int score = minimax(grid, 0, false);
+        grid[i ~/ 3][i % 3] = '';
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMove = i;
         }
       }
     }
 
-    if (emptyCells.isNotEmpty) {
-      Random random = Random();
-      int randomIndex = random.nextInt(emptyCells.length);
-      int cell = emptyCells[randomIndex];
-      int row = cell ~/ 3;
-      int col = cell % 3;
-      
-      setState(() {
-        //grid[row][col] = 'O';
-        checkGameStatus();
-        drawingState.updateGrid(row, col, 'O');
-        grid = drawingState.grid;
-        lastMoveAI_row = row;
-        lastMoveAI_col = col;
-        isPlayerTurn = true;
-        
-      });
+    int row = bestMove ~/ 3;
+    int col = bestMove % 3;
+
+    setState(() {
+      drawingState.updateGrid(row, col, 'O');
+      grid = drawingState.grid;
+      lastMoveAI_row = row;
+      lastMoveAI_col = col;
+      isPlayerTurn = true;
+      checkGameStatus();
+      saveImage();
+    });
+  }
+}
+
+int minimax(List<List<String>> grid, int depth, bool isMaximizing) {
+  String result = checkWinner();
+  if (result == 'X') {
+    return -10;
+  } else if (result == 'O') {
+    return 10;
+  } else if (isGridFull()) {
+    return 0;
+  }
+
+  if (isMaximizing) {
+    int bestScore = -1000;
+    for (int i = 0; i < 9; i++) {
+      if (grid[i ~/ 3][i % 3] == '') {
+        grid[i ~/ 3][i % 3] = 'O';
+        int score = minimax(grid, depth + 1, false);
+        grid[i ~/ 3][i % 3] = '';
+        bestScore = max(score, bestScore);
+      }
+    }
+    return bestScore;
+  } else {
+    int bestScore = 1000;
+    for (int i = 0; i < 9; i++) {
+      if (grid[i ~/ 3][i % 3] == '') {
+        grid[i ~/ 3][i % 3] = 'X';
+        int score = minimax(grid, depth + 1, true);
+        grid[i ~/ 3][i % 3] = '';
+        bestScore = min(score, bestScore);
+      }
+    }
+    return bestScore;
+  }
+}
+
+String checkWinner() {
+  for (int i = 0; i < 3; i++) {
+    if (grid[i][0] == grid[i][1] &&
+        grid[i][1] == grid[i][2] &&
+        grid[i][0] != '') {
+      return grid[i][0];
     }
   }
+
+  for (int i = 0; i < 3; i++) {
+    if (grid[0][i] == grid[1][i] &&
+        grid[1][i] == grid[2][i] &&
+        grid[0][i] != '') {
+      return grid[0][i];
+    }
+  }
+
+  if ((grid[0][0] == grid[1][1] &&
+          grid[1][1] == grid[2][2] &&
+          grid[0][0] != '') ||
+      (grid[0][2] == grid[1][1] &&
+          grid[1][1] == grid[2][0] &&
+          grid[0][2] != '')) {
+    return grid[1][1];
+  }
+
+  return '';
+}
 
   void checkGameStatus() {
     String winner = '';
@@ -193,6 +261,7 @@ class _XOXScreenState extends State<XOXScreen> {
 
     if (winner.isNotEmpty || isGridFull()) {
       setState(() {
+      isPlayerTurn = true;
       drawingState.clearGrid();
       grid = drawingState.grid;
     });
